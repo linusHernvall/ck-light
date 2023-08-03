@@ -4,12 +4,28 @@ import jwt from "jsonwebtoken";
 
 import { SECRET_KEY } from "../../config";
 import UserModel, { UserInterface } from "../../models/UserModel";
+import {
+  validateLoginInput,
+  validateRegisterInput,
+} from "../../util/validators";
 
 interface RegisterInput {
   username: string;
   email: string;
   password: string;
   confirmPassword: string;
+}
+
+function generateToken(user: UserInterface): string {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+    },
+    SECRET_KEY,
+    { expiresIn: "1h" }
+  );
 }
 
 export const usersResolvers = {
@@ -24,14 +40,51 @@ export const usersResolvers = {
     },
   },
   Mutation: {
+    async login(
+      _: any,
+      { username, password }: { username: string; password: string }
+    ) {
+      const { errors, valid } = validateLoginInput(username, password);
+      const user = await UserModel.findOne({ username });
+
+      if (!valid) {
+        throw new UserInputError("Errors", { errors });
+      }
+
+      if (!user) {
+        errors.general = "User not found";
+        throw new UserInputError("User not found", { errors });
+      }
+
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) {
+        errors.general = "Wrong credentials";
+        throw new UserInputError("Wrong credentials", { errors });
+      }
+
+      const token = generateToken(user);
+      return {
+        ...user.toObject(),
+        id: user._id,
+        token,
+      };
+    },
+
     async register(
       _: any,
-      { registerInput }: { registerInput: RegisterInput } // context: any,
-    ) // info: any
-    {
-      // TODO: Validate user data
-      //       Make sure user doesn't already exist
+      { registerInput }: { registerInput: RegisterInput } // context: any, // info: any
+    ) {
       let { username, email, password, confirmPassword } = registerInput;
+
+      const { valid, errors } = validateRegisterInput(
+        username,
+        email,
+        password,
+        confirmPassword
+      );
+      if (!valid) {
+        throw new UserInputError("Errors", { errors });
+      }
 
       const user = await UserModel.findOne({ username });
       if (user) {
@@ -53,15 +106,7 @@ export const usersResolvers = {
 
       const res = await newUser.save();
 
-      const token = jwt.sign(
-        {
-          id: res.id,
-          email: res.email,
-          username: res.username,
-        },
-        SECRET_KEY,
-        { expiresIn: "1h" }
-      );
+      const token = generateToken(res);
 
       return {
         ...res.toObject(),
