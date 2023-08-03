@@ -1,3 +1,4 @@
+import { UserInputError } from "apollo-server";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -25,14 +26,22 @@ export const usersResolvers = {
   Mutation: {
     async register(
       _: any,
-      { registerInput }: { registerInput: RegisterInput }, // Specify the type for the registerInput parameter
-      context: any,
-      info: any
-    ) {
+      { registerInput }: { registerInput: RegisterInput } // context: any,
+    ) // info: any
+    {
       // TODO: Validate user data
       //       Make sure user doesn't already exist
-      //       Hash password and create an auth token
       let { username, email, password, confirmPassword } = registerInput;
+
+      const user = await UserModel.findOne({ username });
+      if (user) {
+        throw new UserInputError("Username is taken", {
+          errors: {
+            username: "This username is taken",
+          },
+        });
+      }
+
       password = await bcrypt.hash(password, 12);
 
       const newUser: UserInterface = new UserModel({
