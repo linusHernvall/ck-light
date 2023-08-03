@@ -16,7 +16,7 @@ export const usersResolvers = {
     async getUsers() {
       try {
         const users = await UserModel.find();
-        return users.map((user) => user.toObject());
+        return users.map((user) => ({ ...user.toObject(), id: user._id }));
       } catch (err: any) {
         throw new Error(err);
       }

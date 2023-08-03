@@ -1,6 +1,7 @@
 import { Document, Schema, model } from "mongoose";
 
 export interface UserInterface extends Document {
+  _id: string;
   username: string;
   password: string;
   email: string;
@@ -8,6 +9,7 @@ export interface UserInterface extends Document {
 }
 
 const userSchema = new Schema<UserInterface>({
+  // _id: String,
   username: String,
   password: String,
   email: String,
